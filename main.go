@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 
+	"github.com/Vishal21121/go-auth-mysql.git/controllers"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -17,5 +18,10 @@ func main() {
 		})
 	})
 
+	userRoutes := app.Group("/api/v1/users")
+	userRoutes.Post("/register", controllers.RegisterUser)
+	userRoutes.Post("/login", controllers.LoginUser)
+
+	log.Printf("Server is running on port 3000...")
 	log.Fatal(app.Listen(":3000"))
 }
