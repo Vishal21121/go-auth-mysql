@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"fmt"
 	"log"
 	"time"
 
@@ -11,7 +10,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type user struct {
+type User struct {
 	ID        uint
 	Name      string
 	Email     string
@@ -25,7 +24,7 @@ var db *gorm.DB
 
 func DBSetter(database *gorm.DB) {
 	db = database
-	db.AutoMigrate(&user{})
+	db.AutoMigrate(&User{})
 }
 
 func RegisterUser(c *fiber.Ctx) error {
@@ -47,10 +46,10 @@ func RegisterUser(c *fiber.Ctx) error {
 	if len(userDataReceived.Email) == 0 || len(userDataReceived.Name) == 0 || len(userDataReceived.Password) == 0 {
 		c.SendStatus(400)
 		return c.JSON(fiber.Map{
-			"statusCode": 400,
+			"success": false,
 			"data": fiber.Map{
-				"success": false,
-				"message": "Please provide all the details",
+				"statusCode": 400,
+				"message":    "Please provide all the details",
 			},
 		})
 	}
@@ -62,21 +61,21 @@ func RegisterUser(c *fiber.Ctx) error {
 	if error != nil {
 		c.SendStatus(500)
 		return c.JSON(fiber.Map{
-			"statusCode": 500,
+			"success": false,
 			"data": fiber.Map{
-				"success": false,
-				"message": error,
+				"statusCode": 500,
+				"message":    error,
 			},
 		})
 	}
-	user := user{Name: userDataReceived.Name, Email: userDataReceived.Email, Password: string(hashedPassword)}
+	user := User{Name: userDataReceived.Name, Email: userDataReceived.Email, Password: string(hashedPassword)}
 
 	db.Create(&user)
 	c.SendStatus(200)
 	return c.JSON(fiber.Map{
-		"statusCode": 201,
+		"success": true,
 		"data": fiber.Map{
-			"success": true,
+			"statusCode": 201,
 			"value": fiber.Map{
 				"name":  user.Name,
 				"email": user.Email,
@@ -87,7 +86,59 @@ func RegisterUser(c *fiber.Ctx) error {
 }
 
 func LoginUser(c *fiber.Ctx) error {
-	//TODO: Implement user login
-	fmt.Println(string(c.Body()))
-	return c.SendStatus(200)
+
+	// struct for getting the data from the user
+	type userData struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+
+	var userDataReceived userData
+	if error := c.BodyParser(&userDataReceived); error != nil {
+		log.Fatal(error)
+	}
+
+	// for getting data from database
+	var userFound User
+	error := db.Where("email = ?", userDataReceived.Email).First(&userFound).Error
+	// if user not found then throw error
+	if error != nil {
+		if error == gorm.ErrRecordNotFound {
+			// Record not found error handling
+			c.SendStatus(401)
+			return c.JSON(fiber.Map{
+				"success": "false",
+				"data": fiber.Map{
+					"statusCode": 401,
+					"message":    "Please provide correct credentials",
+				},
+			})
+		}
+	}
+
+	// check whether password is correct or not
+	if err := bcrypt.CompareHashAndPassword([]byte(userFound.Password), []byte(userDataReceived.Password)); err != nil {
+		c.SendStatus(401)
+		return c.JSON(fiber.Map{
+			"success": "false",
+			"data": fiber.Map{
+				"statusCode": 401,
+				"message":    "Please provide correct credentials",
+			},
+		})
+	}
+
+	c.SendStatus(200)
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data": fiber.Map{
+			"statusCode": 200,
+			"value": fiber.Map{
+				"name":  userFound.Name,
+				"email": userFound.Email,
+				"age":   userFound.Age,
+			},
+		},
+	})
+
 }
