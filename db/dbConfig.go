@@ -10,7 +10,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func DbConfig() {
+func DbConfig() (*gorm.DB, error) {
 	userName := os.Getenv("USER")
 	password := os.Getenv("PASSWORD")
 	host := os.Getenv("HOST")
@@ -18,9 +18,10 @@ func DbConfig() {
 	dbName := os.Getenv("DB_NAME")
 
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local", userName, password, host, port, dbName)
-	_, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatal(err)
 	}
 	log.Println("database connection successfull")
+	return db, nil
 }

@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"github.com/Vishal21121/go-auth-mysql.git/controllers"
+	"github.com/Vishal21121/go-auth-mysql.git/db"
 	"github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
 )
@@ -15,6 +16,15 @@ func main() {
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
+
+	DB, err := db.DbConfig()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	controllers.DBSetter(DB)
+
 	app.Get("/", func(c *fiber.Ctx) error {
 		c.SendStatus(200)
 		return c.JSON(fiber.Map{
