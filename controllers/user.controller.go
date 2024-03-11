@@ -71,7 +71,7 @@ func RegisterUser(c *fiber.Ctx) error {
 	user := User{Name: userDataReceived.Name, Email: userDataReceived.Email, Password: string(hashedPassword)}
 
 	db.Create(&user)
-	c.SendStatus(200)
+	c.SendStatus(201)
 	return c.JSON(fiber.Map{
 		"success": true,
 		"data": fiber.Map{
