@@ -24,9 +24,14 @@ type User struct {
 
 type (
 	UserData struct {
-		Name     string `json:"name" validate:"required,omitempty,min=3,max=20"`
-		Email    string `json:"email" validate:"required,omitempty,email"`
-		Password string `json:"password" validate:"required,omitempty,min=8"`
+		Name     string `json:"name" validate:"required,min=3,max=20"`
+		Email    string `json:"email" validate:"required,email"`
+		Password string `json:"password" validate:"required,min=8"`
+	}
+
+	LoginData struct {
+		Email    string `json:"email" validate:"required,email"`
+		Password string `json:"password" validate:"required"`
 	}
 
 	ErrorResponse struct {
@@ -83,21 +88,13 @@ func RegisterUser(c *fiber.Ctx) error {
 		validator: validate,
 	}
 
-	// userData receiving template
-	// type userData struct {
-	// 	Name     string `json:"name"`
-	// 	Email    string `json:"email"`
-	// 	Password string `json:"password"`
-	// }
-
 	// converting the recived data in the following struct
-	userDataReceived := new(UserData)
-	if err := c.BodyParser(userDataReceived); err != nil {
+	var userDataReceived UserData
+	if err := c.BodyParser(&userDataReceived); err != nil {
 		log.Println(err)
 	}
 
 	if errs := myValidator.Validate(userDataReceived); len(errs) > 0 {
-
 		c.SendStatus(422)
 		return c.JSON(fiber.Map{
 			"success": false,
@@ -156,15 +153,24 @@ func RegisterUser(c *fiber.Ctx) error {
 
 func LoginUser(c *fiber.Ctx) error {
 
-	// struct for getting the data from the user
-	type userData struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
+	myValidator := &XValidator{
+		validator: validate,
 	}
 
-	var userDataReceived userData
+	var userDataReceived LoginData
 	if error := c.BodyParser(&userDataReceived); error != nil {
 		log.Fatal(error)
+	}
+
+	if errs := myValidator.Validate(userDataReceived); len(errs) > 0 {
+		c.SendStatus(422)
+		return c.JSON(fiber.Map{
+			"success": false,
+			"data": fiber.Map{
+				"statusCode": 422,
+				"value":      errs,
+			},
+		})
 	}
 
 	// for getting data from database
