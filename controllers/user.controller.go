@@ -1,11 +1,13 @@
 package controllers
 
 import (
+	"fmt"
 	"log"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
 )
@@ -20,6 +22,54 @@ type User struct {
 	UpdatedAt time.Time
 }
 
+type (
+	UserData struct {
+		Name     string `json:"name" validate:"required,omitempty,min=3,max=20"`
+		Email    string `json:"email" validate:"required,omitempty,email"`
+		Password string `json:"password" validate:"required,omitempty,min=8"`
+	}
+
+	ErrorResponse struct {
+		Error        bool
+		FailedField  string
+		Tag          string
+		Value        interface{}
+		ErrorMessage string
+	}
+
+	XValidator struct {
+		validator *validator.Validate
+	}
+)
+
+var validate = validator.New()
+
+func (v XValidator) Validate(data interface{}) []string {
+	var validationErrors []string
+
+	errs := validate.Struct(data)
+	if errs != nil {
+		for _, err := range errs.(validator.ValidationErrors) {
+			// In this case data object is actually holding the User struct
+			var elem string
+
+			switch err.Tag() {
+			case "required":
+				elem = fmt.Sprintf("%s is required", err.Field())
+			case "email":
+				elem = fmt.Sprintf("%s is not a valid email", err.Field())
+			case "min":
+				elem = fmt.Sprintf("%s must be at least %s characters long", err.Field(), err.Param())
+			case "max":
+				elem = fmt.Sprintf("%s must be at most %s characters long", err.Field(), err.Param())
+			}
+			validationErrors = append(validationErrors, elem)
+		}
+	}
+
+	return validationErrors
+}
+
 var db *gorm.DB
 
 func DBSetter(database *gorm.DB) {
@@ -29,32 +79,51 @@ func DBSetter(database *gorm.DB) {
 
 func RegisterUser(c *fiber.Ctx) error {
 
-	// userData receiving template
-	type userData struct {
-		Name     string `json:"name"`
-		Email    string `json:"email"`
-		Password string `json:"password"`
+	myValidator := &XValidator{
+		validator: validate,
 	}
 
+	// userData receiving template
+	// type userData struct {
+	// 	Name     string `json:"name"`
+	// 	Email    string `json:"email"`
+	// 	Password string `json:"password"`
+	// }
+
 	// converting the recived data in the following struct
-	userDataReceived := new(userData)
+	userDataReceived := new(UserData)
 	if err := c.BodyParser(userDataReceived); err != nil {
 		log.Println(err)
 	}
 
-	// checking whether all the fields are provided
-	if len(userDataReceived.Email) == 0 || len(userDataReceived.Name) == 0 || len(userDataReceived.Password) == 0 {
-		c.SendStatus(400)
+	if errs := myValidator.Validate(userDataReceived); len(errs) > 0 {
+
+		c.SendStatus(422)
 		return c.JSON(fiber.Map{
 			"success": false,
 			"data": fiber.Map{
-				"statusCode": 400,
-				"message":    "Please provide all the details",
+				"statusCode": 422,
+				"value":      errs,
 			},
 		})
 	}
 
 	// if userDataReceived.
+
+	// check whether we already have user with the provided email id
+	var userFound User
+	db.Where("email = ?", userDataReceived.Email).First(&userFound)
+
+	if userFound.Email != "" {
+		c.SendStatus(400)
+		return c.JSON(fiber.Map{
+			"suceess": false,
+			"data": fiber.Map{
+				"statusCode": 400,
+				"message":    "Please enter another email id",
+			},
+		})
+	}
 
 	// hashing the password
 	hashedPassword, error := bcrypt.GenerateFromPassword([]byte(userDataReceived.Password), bcrypt.DefaultCost)
