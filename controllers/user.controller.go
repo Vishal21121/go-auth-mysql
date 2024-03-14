@@ -7,6 +7,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/Vishal21121/go-auth-mysql.git/utils"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
@@ -203,15 +204,58 @@ func LoginUser(c *fiber.Ctx) error {
 		})
 	}
 
+	refreshToken, err := utils.GenerateRefreshToken(fmt.Sprint(userFound.ID))
+	if err != nil {
+		c.SendStatus(500)
+		return c.JSON(fiber.Map{
+			"success": false,
+			"data": fiber.Map{
+				"statusCode": 500,
+				"message":    "Internal server error",
+			},
+		})
+	}
+
+	userForToken := map[string]string{
+		"userId": fmt.Sprint(userFound.ID),
+		"name":   userFound.Name,
+		"email":  userDataReceived.Email,
+	}
+	accessToken, err := utils.GenerateAccessToken(userForToken)
+	if err != nil {
+		c.SendStatus(500)
+		return c.JSON(fiber.Map{
+			"success": false,
+			"data": fiber.Map{
+				"statusCode": 500,
+				"message":    "Internal server error",
+			},
+		})
+	}
+
+	cookie := new(fiber.Cookie)
+	cookie.Name = "refreshToken"
+	cookie.Value = refreshToken
+	cookie.Secure = true
+	cookie.HTTPOnly = true
+	cookie.SameSite = "none"
+	cookie.MaxAge = 2 * 24 * 60 * 60 // 2 days in seconds
+
 	c.SendStatus(200)
+	c.Cookie(cookie)
 	return c.JSON(fiber.Map{
 		"success": true,
 		"data": fiber.Map{
 			"statusCode": 200,
-			"value": fiber.Map{
-				"name":  userFound.Name,
-				"email": userFound.Email,
-				"age":   userFound.Age,
+			"value": []fiber.Map{
+				{
+					"name":  userFound.Name,
+					"email": userFound.Email,
+					"age":   userFound.Age,
+				},
+				{
+					"accessToken": accessToken,
+				},
 			},
 		},
 	})

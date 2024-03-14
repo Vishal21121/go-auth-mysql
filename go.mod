@@ -6,6 +6,7 @@ require (
 	github.com/go-playground/validator/v10 v10.19.0
 	github.com/go-sql-driver/mysql v1.7.0
 	github.com/gofiber/fiber/v2 v2.52.2
+	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/joho/godotenv v1.5.1
 	golang.org/x/crypto v0.21.0
 	gorm.io/driver/mysql v1.5.4
